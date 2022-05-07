@@ -1,17 +1,18 @@
 FROM       ubuntu:18.04
 #MAINTAINER subinghong
 
-ENV LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8 \
-    LANGUAGE=en_US.UTF-8 \
+ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
+    ROOT_PASSWORD=atthemine \
     TAILSCALE_KEY=${TAILSCALE_KEY} \
-    TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME}
+    TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME} \
+    GOST_VER=2.11.1 GOST_METHOD=${GOST_METHOD} GOST_PASSWORD=${GOST_PASSWORD} GOST_PORT=8081
+   #GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081
 
 RUN apt-get update
 RUN apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
 
-RUN echo 'root:atthemine' |chpasswd
+RUN echo 'root:${ROOT_PASSWORD}' |chpasswd
 #RUN useradd -m alpine  && echo "alpine:atthemine" | /usr/sbin/chpasswd  && adduser alpine sudo
 RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
 RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
@@ -31,10 +32,23 @@ RUN rm -rf /var/run/tailscale
 RUN mkdir -p /var/run/tailscale
 
 RUN echo "#!/bin/bash" > start.sh
+RUN chmod +x /start.sh
+
+#install nginx
+RUN apt-get install nginx
+RUN echo "nginx" >> start.sh
+
+
+#install gost proxy
+RUN curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar zx \
+    && mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost
+RUN echo "exec /gost/gost -L=ss+mws://\$GOST_METHOD:\$GOST_PASSWORD@:\$GOST_PORT" >> start.sh
+
 RUN echo "nohup tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --socket=/var/run/tailscale/tailscaled.sock --port 41641 &" >> /start.sh
 RUN echo "tailscale up --auth-key=\${TAILSCALE_KEY} --hostname=\${TAILSCALE_HOSTNAME}" >> start.sh
+
+
 RUN echo "/usr/sbin/sshd -D" >> start.sh
-RUN chmod +x /start.sh
 
 
 RUN apt-get clean && \
