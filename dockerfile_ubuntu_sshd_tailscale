@@ -35,7 +35,7 @@ RUN echo "#!/bin/bash" > start.sh
 RUN chmod +x /start.sh
 
 #install nginx
-RUN apt-get install nginx
+RUN apt-get install -y nginx
 RUN echo "nginx" >> start.sh
 
 
