@@ -6,7 +6,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Publish to Registry
-      uses: elgohr/Publish-Docker-Github-Action@v4
+      uses: elgohr/Publish-Docker-Github-Action@master
       with:
         name: subinghhong/ubuntu-ssh
         username: ${{ secrets.DOCKER_USERNAME }}
