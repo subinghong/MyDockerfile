@@ -42,7 +42,7 @@ RUN echo "nginx" >> start.sh
 #install gost proxy
 RUN curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar zx \
     && mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost
-RUN echo "exec /gost/gost -L=ss+mws://\$GOST_METHOD:\$GOST_PASSWORD@:\$GOST_PORT" >> start.sh
+RUN echo "nohup /gost/gost -L=ss+mws://\$GOST_METHOD:\$GOST_PASSWORD@:\$GOST_PORT & > nohup_gost.out" >> start.sh
 
 RUN echo "nohup tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --socket=/var/run/tailscale/tailscaled.sock --port 41641 &" >> /start.sh
 RUN echo "tailscale up --auth-key=\${TAILSCALE_KEY} --hostname=\${TAILSCALE_HOSTNAME}" >> start.sh
