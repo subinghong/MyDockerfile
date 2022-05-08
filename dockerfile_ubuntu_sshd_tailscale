@@ -12,7 +12,7 @@ RUN apt-get update
 RUN apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
 
-RUN echo 'root:${ROOT_PASSWORD}' |chpasswd
+#RUN echo 'root:${ROOT_PASSWORD}' |chpasswd
 #RUN useradd -m alpine  && echo "alpine:atthemine" | /usr/sbin/chpasswd  && adduser alpine sudo
 RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
 RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
@@ -33,6 +33,8 @@ RUN mkdir -p /var/run/tailscale
 
 RUN echo "#!/bin/bash" > start.sh
 RUN chmod +x /start.sh
+
+RUN echo "echo 'root:\${ROOT_PASSWORD}' |chpasswd" >> start.sh
 
 #install nginx
 RUN apt-get install -y nginx
