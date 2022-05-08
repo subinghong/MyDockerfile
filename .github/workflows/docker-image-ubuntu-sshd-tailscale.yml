@@ -13,3 +13,4 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         dockerfile: dockerfile_ubuntu_sshd_tailscale
         snapshot: true
+        tags: "gost"
