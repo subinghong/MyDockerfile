@@ -33,7 +33,7 @@ RUN mkdir -p /var/run/tailscale
 RUN echo "#!/bin/bash" > start.sh
 RUN chmod +x /start.sh
 
-RUN echo "echo 'root:\${ROOT_PASSWORDF:-rootpw2}' |chpasswd" >> start.sh
+RUN echo "echo 'root:\${ROOT_PASSWORD:-rootpw2}' |chpasswd" >> start.sh
 
 #install nginx
 RUN apt-get install -y nginx
