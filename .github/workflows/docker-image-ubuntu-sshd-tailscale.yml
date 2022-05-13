@@ -12,5 +12,4 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         dockerfile: dockerfile_ubuntu_sshd_tailscale
-        snapshot: true
-        tags: "gost"
+        tags: "gost_${{ env.STATE_RELEASE_VERSION }}"
