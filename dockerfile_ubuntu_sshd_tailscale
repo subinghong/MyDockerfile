@@ -76,7 +76,7 @@ RUN curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOS
 RUN echo "nohup /gost/gost -L=ss+mws://\$GOST_METHOD:\$GOST_PASSWORD@:\$GOST_PORT & > nohup_gost.out" >> start.sh
 
 #install code-server
-RUN curl -fOL https://github.com/coder/code-server/releases/download/v${version}/code-server-4.4.0-linux-amd64.tar.gz
+RUN curl -fOL https://github.com/coder/code-server/releases/download/v4.4.0/code-server-4.4.0-linux-amd64.tar.gz
 RUN tar xzvf code-server-4.4.0-linux-amd64.tar.gz
 RUN rm code-server-4.4.0-linux-amd64.tar.gz
 RUN echo "if [ -d code-server-4.4.0-linux-amd64 ]; then" >> start.sh
