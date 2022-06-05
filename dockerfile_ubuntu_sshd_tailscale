@@ -7,7 +7,7 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081
 
 RUN apt-get update
-RUN apt-get install -y openssh-server vim zip unzip
+RUN apt-get install -y openssh-server vim zip unzip git
 RUN mkdir /var/run/sshd
 
 RUN echo 'root:rootpw' |chpasswd
