@@ -93,6 +93,8 @@ RUN echo "tailscale up --auth-key=\${TAILSCALE_KEY} --hostname=\${TAILSCALE_HOST
 
 RUN echo "/usr/sbin/sshd -D" >> start.sh
 
+RUN echo "if [ -f /mydata/start_ext.sh ]; then . /mydata/start_ext.sh ; fi" >> start.sh
+
 
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
