@@ -8,7 +8,7 @@ jobs:
     - name: Publish to Registry
       uses: elgohr/Publish-Docker-Github-Action@v4
       with:
-        name: subinghong/ubuntu-vsc
+        name: subinghong/ubuntu_vsc
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         dockerfile: dockerfile_ubuntu_vsc
