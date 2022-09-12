@@ -10,7 +10,7 @@ RUN apt-get install -y openssh-server vim zip unzip git curl
 RUN mkdir /var/run/sshd
 
 RUN echo 'root:rootpw' |chpasswd
-RUN useradd -m alpine  && echo "alpine:`uuidgen`" | /usr/sbin/chpasswd  && adduser alpine sudo
+RUN useradd -m alpine  && echo "alpine:uuidgen" | /usr/sbin/chpasswd  && adduser alpine sudo
 RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
 RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 RUN echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
