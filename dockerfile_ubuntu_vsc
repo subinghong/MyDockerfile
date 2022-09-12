@@ -21,7 +21,7 @@ RUN chmod +x /start.sh
 
 RUN echo "sh -c 'echo root:\${ROOT_PASSWORD:-rootpw} | chpasswd'" >> start.sh
 
-#install nginx
+#install nginx 
 RUN apt-get install -y nginx
 RUN echo "nginx" >> start.sh
 
