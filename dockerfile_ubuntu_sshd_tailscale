@@ -36,7 +36,7 @@ RUN apt-get update \
 #clear cache
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-&& touch /start.sh && chmod +x /start.sh \
+&& touch /start.sh && chmod +x /start.sh
 
 RUN echo -e "\
 #!/bin/bash \n\
