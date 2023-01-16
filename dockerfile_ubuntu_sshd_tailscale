@@ -19,7 +19,7 @@ RUN apt-get update \
 && mkdir /root/.ssh \
 
 # install tailscale
-&& apt-get update && apt-get install -y gnupg gnupg2 gnupg1 \
+&& apt-get install -y gnupg gnupg2 gnupg1 && apt-get update \
 && curl https://pkgs.tailscale.com/stable/ubuntu/bionic.gpg | apt-key add - \
 && curl https://pkgs.tailscale.com/stable/ubuntu/bionic.list | tee /etc/apt/sources.list.d/tailscale.list \
 && apt-get install -y tailscale \
