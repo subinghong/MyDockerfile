@@ -37,7 +37,7 @@ RUN apt-get update \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN << 'EOF' cat > /start.sh 
+RUN << "EOF" cat > /start.sh 
 #!/bin/bash
 sh -c 'echo root:${ROOT_PASSWORD:-rootpw} | chpasswd'
 nginx
