@@ -67,10 +67,10 @@ if [ -d /mydata ]; then \n\
 fi \n\
 mkdir -p dataPath/tmp \n\
 if [ $TAILSCALE_KEY ]; then \n\
-    SET_TAILSCALE_KEY=\\'--auth-key=${TAILSCALE_KEY}\\' \n\
+    SET_TAILSCALE_KEY="--auth-key=${TAILSCALE_KEY}" \n\
 fi \n\
 if [ $TAILSCALE_HOSTNAME ]; then \n\
-    SET_TAILSCALE_HOSTNAME=\\'--hostname=${TAILSCALE_HOSTNAME}\\' \n\
+    SET_TAILSCALE_HOSTNAME="--hostname=${TAILSCALE_HOSTNAME}" \n\
 fi \n\
 nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=${dataPath}/tmp/tailscaled.state --socket=${dataPath}/tmp/tailscaled.sock --port 41641 > nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscale.pid  \n\
 nohup $curDir/tailscale --socket=${dataPath}/tmp/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
@@ -108,8 +108,8 @@ server { \n\
         proxy_set_header Upgrade $http_upgrade; \n\
         proxy_set_header Connection "upgrade"; \n\
     } \n\
-
-    location ~* ^/vnc/ { \n\
+ \n\
+    location ~* ^/vnc/(.*) { \n\
         resolver 127.0.0.11 valid=30s ipv6=off; \n\
         set $target "novnc-p:6080"; \n\
         proxy_pass http://$target/$1$is_args$args; \n\
