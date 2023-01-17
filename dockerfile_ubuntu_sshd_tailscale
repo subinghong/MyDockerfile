@@ -4,85 +4,84 @@ FROM       ubuntu:20.04
 #发现构建过程中有出现询问timezone的交互导致构建无法顺利进行下去，设置该变量跳过询问交互
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 TZ=Asia/Shanghai\
-    TailscaleVersion=1.34.2 \
-    TAILSCALE_KEY=${TAILSCALE_KEY} \
-    TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME} \
-    GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081
+ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
+    TZ=Asia/Shanghai TailscaleVersion=1.34.2 \
+    TAILSCALE_KEY=${TAILSCALE_KEY}  TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME} \
+    GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081 \
+    CODE_SERVER_VER=4.9.1
 
 RUN apt-get update \
 && apt-get install -y openssh-server vim zip unzip git inetutils-ping curl ncat locales nginx \
 && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-#clear cache
+&& echo '#clear cache' \
 && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-
 #enable password login
-echo 'root:rootPwGo!' |chpasswd \
-# && useradd -m alpine  && echo "alpine:alpine" | /usr/sbin/chpasswd  && adduser alpine sudo \
+&& echo '#enable password login' \
+&& echo 'root:rootPwGo!' |chpasswd \
+&& echo '# && useradd -m appuser  && echo "appuser:appuser" | /usr/sbin/chpasswd  && adduser appuser sudo' \
 && echo sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config \
 && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
 && echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config \
 && mkdir /root/.ssh
 
-#install tailscale
+#install tailscale'
 RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.34.2}_amd64.tgz | tar --no-same-owner -zx \
 && mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale \
 #install gost proxy
 && curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar --no-same-owner -zx \
     && mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost \
 #install code-server
-&& curl -fOL https://github.com/coder/code-server/releases/download/v4.9.1/code-server-4.9.1-linux-amd64.tar.gz \
-&& tar --no-same-owner -xzvf code-server-4.9.1-linux-amd64.tar.gz \
-&& rm code-server-4.9.1-linux-amd64.tar.gz
+&& curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz \
+&& tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz \
+&& mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 \
+&& rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
 
-RUN echo -e "\
-curDir=\$(cd \$(dirname $0); pwd) \n\
-dataPath=\$curPath \n\
+#在dockerfile中 echo 不能加 -e，否则会被当做字符串拼接在内容里面
+#container start script
+RUN echo "#!/bin/bash"> /start.sh \
+&& echo '\
+# sh -c \'echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd\' \n\
+nginx \n\
+bash /tailscale/start.sh & \n\
+nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > nohup_gost.out \n\
+if [ -d code-server-linux-amd64 ]; then \n\
+  cd code-server-linux-amd64 \n\
+  mkdir -p /mydata/vsc_user_data \n\
+  if [ $VSC_ENABLE ]; then \n\
+    export PASSWORD=${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/vsc_user_data > nohup_code-server.out & echo 2>&1& echo $! > code-server.pid \n\
+  fi \n\
+fi \n\
+if [ -f /mydata/start_ext.sh ]; then bash /mydata/start_ext.sh ; fi \n\
+mkdir -p /var/run/sshd \n\
+/usr/sbin/sshd -D \n\
+echo "end" \n\
+'>> /start.sh \
+&& chmod +x /start.sh \
+#tailscale start script
+&& echo '\
+curDir=$(cd $(dirname $0); pwd) \n\
+cd $curDir \n\
+dataPath=$curPath \n\
 if [ -d /mydata ]; then \n\
     dataPath=/mydata/tailscale \n\
 fi \n\
 mkdir -p dataPath/tmp \n\
-if [ \$TAILSCALE_KEY ]; then \n\
-    SET_TAILSCALE_KEY='--auth-key=\${TAILSCALE_KEY}' \n\
+if [ $TAILSCALE_KEY ]; then \n\
+    SET_TAILSCALE_KEY=\\'--auth-key=${TAILSCALE_KEY}\\' \n\
 fi \n\
-if [ \$TAILSCALE_HOSTNAME ]; then \n\
-    SET_TAILSCALE_HOSTNAME='--hostname=\${TAILSCALE_HOSTNAME}' \n\
+if [ $TAILSCALE_HOSTNAME ]; then \n\
+    SET_TAILSCALE_HOSTNAME=\\'--hostname=${TAILSCALE_HOSTNAME}\\' \n\
 fi \n\
-nohup \$curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=\${dataPath}/tmp/tailscaled.state --socket=\${dataPath}/tmp/tailscaled.sock --port 41641 > nohup_tailscale.out 2>&1& echo $! > \${dataPath}/tailscale.pid  \n\
-$curDir/tailscale --socket=\${dataPath}/tmp/tailscaled.sock up \${SET_TAILSCALE_KEY} \${SET_TAILSCALE_HOSTNAME} \n\
-" > tailscale/start.sh \
+nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=${dataPath}/tmp/tailscaled.state --socket=${dataPath}/tmp/tailscaled.sock --port 41641 > nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscale.pid  \n\
+nohup $curDir/tailscale --socket=${dataPath}/tmp/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
+echo "tailscale!" \n\
+' > tailscale/start.sh \
 && chmod +x tailscale/start.sh \
-
-&& echo -e "\
-#!/bin/bash \n\
-sh -c 'echo root:\${ROOT_PASSWORD:-rootPwGo} | chpasswd' \n\
-nginx \n\
-nohup /gost/gost -L=ss+mws://\$GOST_METHOD:\$GOST_PASSWORD@:\$GOST_PORT & > nohup_gost.out \n\
-if [ -d code-server-4.4.0-linux-amd64 ]; then \n\
-  cd code-server-4.4.0-linux-amd64 \n\
-  mkdir -p /mydata/vsc_user_data \n\
-  if [ \$VSC_ENABLE ]; then \n\
-    export PASSWORD=\${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/vsc_user_data & > nohup_code-server.out & echo  > code-server.pid \n\
-  fi \n\
-fi \n\
- \n\
-bash /tailscale/start.sh \n\
-#tailscale用户模式使用socks5进行代理，可以使用ncat工具进行代理转发与同一个tailscale网络里的其他主机进行通信 \n\
-#ssh利用ncat使用socks5进行代理登陆示例 \n\
-# ssh -o ProxyCommand=\"ncat --proxy-type socks5 --proxy 127.0.0.1:1055 %h %p\" root@flyio \n\
-#利用ncat使用socks5代理进行端口转发示例 \n\
-#nohup ncat  -l localhost 8081  --sh-exec \"ncat --proxy-type socks5 --proxy 127.0.0.1:1055 inteldev2 6080\" --keep-open --verbose >nohup_ncat.out 2>&1& echo $! > ncat.pid \n\
- \n\
-/usr/sbin/sshd -D \n\
-if [ -f /mydata/start_ext.sh ]; then bash /mydata/start_ext.sh ; fi \n\
-"> /start.sh \
-&& chmod +x /start.sh
-
 #nginx http server config
-RUN echo -e "\
-map \$http_upgrade \$connection_upgrade { \n\
+&& echo '\
+map $http_upgrade $connection_upgrade { \n\
     default upgrade; \n\
-    '' close; \n\
+    "" close; \n\
 } \n\
  \n\
 server { \n\
@@ -96,22 +95,34 @@ server { \n\
 \n\
     location /gost/ { \n\
         proxy_pass http://127.0.0.1:8081/; \n\
-        proxy_set_header Host \$host; \n\
+        proxy_set_header Host $host; \n\
         proxy_http_version 1.1; \n\
         proxy_set_header Upgrade $http_upgrade; \n\
         proxy_set_header Connection \"upgrade\"; \n\
     } \n\
  \n\
     location /vsc/ { \n\
-        set \$target http://127.0.0.1:8443/; \n\
-        proxy_pass \$target; \n\
-        proxy_set_header Host \$host; \n\
+        proxy_pass http://127.0.0.1:8443/; \n\
+        proxy_set_header Host $host; \n\
         proxy_http_version 1.1; \n\
-        proxy_set_header Upgrade \$http_upgrade; \n\
-        proxy_set_header Connection \"upgrade\"; \n\
+        proxy_set_header Upgrade $http_upgrade; \n\
+        proxy_set_header Connection "upgrade"; \n\
+    } \n\
+
+    location ~* ^/vnc/ { \n\
+        resolver 127.0.0.11 valid=30s ipv6=off; \n\
+        set $target "novnc-p:6080"; \n\
+        proxy_pass http://$target/$1$is_args$args; \n\
+        # add_header Cache-Control no-store; \n\
+        proxy_set_header Host $host; \n\
+        proxy_http_version 1.1; \n\
+        proxy_set_header Upgrade $http_upgrade; \n\
+        proxy_set_header Connection "upgrade"; \n\
+        proxy_set_header X-Real-IP $remote_addr; \n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
     } \n\
 } \n\
-"> /etc/nginx/conf.d/default.conf
+'> /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
