@@ -2,6 +2,7 @@ FROM       ubuntu:20.04
 #MAINTAINER sbh
 
 #发现构建过程中有出现询问timezone的交互导致构建无法顺利进行下去，设置该变量跳过询问交互
+ARG DEBCONF_NONINTERACTIVE_SEEN=true
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
@@ -11,8 +12,11 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     CODE_SERVER_VER=4.9.1
 
 RUN apt-get update \
-&& apt-get install -y openssh-server vim zip unzip git inetutils-ping curl ncat locales nginx \
+&& apt-get install -y openssh-server vim zip unzip git inetutils-ping curl ncat locales nginx telnet \
+    x11-utils xorg ratpoison libgtk-3-dev libdbus-glib-1.2 \
 && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+&& curl -fOL https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb \
+&& dpkg -i turbovnc_3.0.2_amd64.deb && apt-get install -f \
 && echo '#clear cache' \
 && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
 #enable password login
@@ -34,7 +38,8 @@ RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.3
 && curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz \
 && tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz \
 && mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 \
-&& rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
+&& rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+curl -fOL https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb
 
 #在dockerfile中 echo 不能加 -e，否则会被当做字符串拼接在内容里面
 #container start script
@@ -65,7 +70,7 @@ dataPath=$curPath \n\
 if [ -d /mydata ]; then \n\
     dataPath=/mydata/tailscale \n\
 fi \n\
-mkdir -p dataPath/tmp \n\
+mkdir -p $dataPath/tmp \n\
 if [ $TAILSCALE_KEY ]; then \n\
     SET_TAILSCALE_KEY="--auth-key=${TAILSCALE_KEY}" \n\
 fi \n\
