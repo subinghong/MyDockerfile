@@ -93,11 +93,11 @@ echo "tailscale!" \n\
 # turbovnc start script
 echo "#!/bin/bash"> /start_turboVnc.sh && \
 echo '\
-if [ ! -f /etc/X11/xinit/xinitrc_bak ]; then
-    mv /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc_bak
-    echo "exec ratpoison" >/etc/X11/xinit/xinitrc && chmod +x /etc/X11/xinit/xinitrc
-fi
-/opt/TurboVNC/bin/vncserver
+if [ ! -f /etc/X11/xinit/xinitrc_bak ]; then \n\
+    mv /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc_bak \n\
+    echo "exec ratpoison" >/etc/X11/xinit/xinitrc && chmod +x /etc/X11/xinit/xinitrc \n\
+fi \n\
+/opt/TurboVNC/bin/vncserver \n\
 ' > tailscale/start_turboVnc.sh \
 #nginx http server config
 && echo '\
