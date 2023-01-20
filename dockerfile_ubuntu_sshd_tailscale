@@ -12,14 +12,14 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     CODE_SERVER_VER=4.9.1
 
 RUN apt-get update \
-&& apt-get install -y openssh-server vim zip unzip git inetutils-ping curl ncat locales nginx telnet \
-    x11-utils xorg ratpoison libgtk-3-dev libdbus-glib-1.2 libegl1-mesa terminator \
+&& apt-get install -y openssh-server vim zip unzip git inetutils-ping curl wget ncat locales nginx telnet \
+    x11-utils xorg ratpoison xterm libgtk-3-dev libdbus-glib-1.2 libegl1-mesa  \
 && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
 && curl -fOL https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb \
 && curl -fOL https://sourceforge.net/projects/virtualgl/files/3.0.2/virtualgl_3.0.2_amd64.deb \
 && dpkg -i turbovnc_3.0.2_amd64.deb && dpkg -i virtualgl_3.0.2_amd64.deb && apt-get install -f \
-# && echo '#clear cache' \
-# && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+&& echo '#clear cache' \
+&& apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
 #enable password login
 && echo '#enable password login' \
 && echo 'root:rootPwGo!' |chpasswd \
@@ -28,6 +28,13 @@ RUN apt-get update \
 && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
 && echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config \
 && mkdir /root/.ssh
+
+#install chrome
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+apt install -y ./google-chrome-stable_current_amd64.deb	&& \
+	rm google-chrome-stable_current_amd64.deb && \
+	echo "set border 1" > ~/.ratpoisonrc  && \
+	echo "exec google-chrome --no-sandbox">> ~/.ratpoisonrc
 
 #install tailscale'
 RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.34.2}_amd64.tgz | tar --no-same-owner -zx \
@@ -57,6 +64,7 @@ if [ -d code-server-linux-amd64 ]; then \n\
   fi \n\
 fi \n\
 if [ -f /mydata/start_ext.sh ]; then bash /mydata/start_ext.sh ; fi \n\
+
 mkdir -p /var/run/sshd \n\
 /usr/sbin/sshd -D \n\
 echo "end" \n\
@@ -81,7 +89,16 @@ nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:10
 nohup $curDir/tailscale --socket=${dataPath}/tmp/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
 echo "tailscale!" \n\
 ' > tailscale/start.sh \
-&& chmod +x tailscale/start.sh \
+&& chmod +x tailscale/start.sh && \
+# turbovnc start script
+echo "#!/bin/bash"> /start_turboVnc.sh && \
+echo '\
+if [ ! -f /etc/X11/xinit/xinitrc_bak ]; then
+    mv /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc_bak
+    echo "exec ratpoison" >/etc/X11/xinit/xinitrc && chmod +x /etc/X11/xinit/xinitrc
+fi
+/opt/TurboVNC/bin/vncserver
+' > tailscale/start_turboVnc.sh \
 #nginx http server config
 && echo '\
 map $http_upgrade $connection_upgrade { \n\
