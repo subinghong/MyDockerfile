@@ -9,76 +9,97 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     TZ=Asia/Shanghai TailscaleVersion=1.34.2 \
     TAILSCALE_KEY=${TAILSCALE_KEY}  TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME} \
     GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081 \
-    CODE_SERVER_VER=4.9.1
+    CODE_SERVER_VER=4.9.1 VNC_NUMBER=1
 
-RUN apt-get update \
-&& apt-get install -y openssh-server vim zip unzip git inetutils-ping curl wget ncat locales nginx telnet \
-    x11-utils xorg ratpoison xterm libgtk-3-dev libdbus-glib-1.2 libegl1-mesa  \
-&& localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-&& curl -fOL https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb \
-&& curl -fOL https://sourceforge.net/projects/virtualgl/files/3.0.2/virtualgl_3.0.2_amd64.deb \
-&& dpkg -i turbovnc_3.0.2_amd64.deb && dpkg -i virtualgl_3.0.2_amd64.deb && apt-get install -f \
-# && echo '#clear cache' \
-# && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-#enable password login
-&& echo '#enable password login' \
-&& echo 'root:rootPwGo!' |chpasswd \
-&& echo '# && useradd -m appuser  && echo "appuser:appuser" | /usr/sbin/chpasswd  && adduser appuser sudo' \
-&& echo sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config \
-&& echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
-&& echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config \
-&& mkdir /root/.ssh
+RUN apt-get update && \
+apt-get install -y openssh-server vim zip unzip git inetutils-ping curl wget ncat locales nginx telnet \
+    x11-utils xorg ratpoison xterm \
+    #firefox dep
+    libgtk-3-dev libdbus-glib-1.2 libegl1-mesa \
+    #vscode dep
+    libnss3 && \
+localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && \
+curl -fOL https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb && \
+curl -fOL https://sourceforge.net/projects/virtualgl/files/3.0.2/virtualgl_3.0.2_amd64.deb && \
+dpkg -i turbovnc_3.0.2_amd64.deb virtualgl_3.0.2_amd64.deb && apt-get install -f && \
+rm *.deb && \
+# echo '#clear cache' && \
+# apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+# enable password login
+echo '#enable password login' && \
+echo 'root:rootPwGo!' |chpasswd && \
+echo '# && useradd -m appuser  && echo "appuser:appuser" | /usr/sbin/chpasswd  && adduser appuser sudo' && \
+echo sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config && \
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
+mkdir /root/.ssh && \
+echo '#remove nginx default server conf' && \
+sed -i 's%include /etc/nginx/sites-enabled/%#include /etc/nginx/sites-enabled/%g' /etc/nginx/nginx.conf
 
 #install chrome
-RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-# apt-get install -y fonts-liberation libnspr4 libnss3 libu2f-udev xdg-utils && \
-apt-get install -y ./google-chrome-stable_current_amd64.deb	&& \
-apt-get install -f && \
-	rm google-chrome-stable_current_amd64.deb && \
-	echo "#set border 1" > ~/.ratpoisonrc  && \
-	echo "#exec google-chrome --no-sandbox">> ~/.ratpoisonrc
+# RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+# apt-get install -y ./google-chrome-stable_current_amd64.deb	&& \
+# apt-get install -f && \
+# 	rm google-chrome-stable_current_amd64.deb && \
+# 	echo "#set border 1" > ~/.ratpoisonrc  && \
+# 	echo "#exec google-chrome --no-sandbox">> ~/.ratpoisonrc
 
-#install tailscale'
-RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.34.2}_amd64.tgz | tar --no-same-owner -zx \
-&& mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale \
+#install firefox
+# RUN curl -fL 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' --output firefox-latest.tar.bz2 && \
+# tar xjvf firefox-latest.tar.bz2 && rm firefox-latest.tar.bz2
+# tar.bz2 解压需要用 -jx 参数
+# RUN curl -fsL 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' | tar --no-same-owner -jx
+
+#install vscode tar.gz 解压用 -zx 参数
+#RUN curl -fsL 'https://code.visualstudio.com/sha/download?build=stable&os=linux-x64' | tar --no-same-owner -zx
+
+#install tailscale
+RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.34.2}_amd64.tgz | tar --no-same-owner -zx && \
+mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale && \
 #install gost proxy
-&& curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar --no-same-owner -zx \
-    && mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost \
+curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar --no-same-owner -zx && \
+    mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost && \
 #install code-server
-&& curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz \
-&& tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz \
-&& mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 \
-&& rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
+curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
+rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
 
 #在dockerfile中 echo 不能加 -e，否则会被当做字符串拼接在内容里面
 #container start script
-RUN echo "#!/bin/bash"> /start.sh \
-&& echo '\
+RUN echo "#!/bin/bash"> /start.sh && \
+echo '\
 # sh -c \'echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd\' \n\
 nginx \n\
-bash /tailscale/start.sh & \n\
+if [ $TAILSCALE_ENABLE ]; then \n\
+    bash /tailscale/start.sh & \n\
+fi \n\
+ \n\
 nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > nohup_gost.out \n\
 if [ -d code-server-linux-amd64 ]; then \n\
   cd code-server-linux-amd64 \n\
-  mkdir -p /mydata/vsc_user_data \n\
+  mkdir -p /mydata/userdata/vsc_user_data \n\
   if [ $VSC_ENABLE ]; then \n\
-    export PASSWORD=${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/vsc_user_data > nohup_code-server.out & echo 2>&1& echo $! > code-server.pid \n\
+    export PASSWORD=${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/userdata/vsc_user_data > nohup_code-server.out & echo 2>&1& echo $! > code-server.pid \n\
   fi \n\
 fi \n\
 if [ -f /mydata/start_ext.sh ]; then bash /mydata/start_ext.sh ; fi \n\
-
+ \n\
 mkdir -p /var/run/sshd \n\
+if [ $SSHD_ENABLE ]; then \n\
 /usr/sbin/sshd -D \n\
+else \n\
+tail -f /dev/null \n\
+fi \n\
 echo "end" \n\
-'>> /start.sh \
-&& chmod +x /start.sh \
+'>> /start.sh && chmod +x /start.sh && \
 #tailscale start script
-&& echo '\
-curDir=$(cd $(dirname $0); pwd) \n\
+echo '\
+curDir=$(dirname $(readlink -f "$0")) \n\
 cd $curDir \n\
 dataPath=$curPath \n\
 if [ -d /mydata ]; then \n\
-    dataPath=/mydata/tailscale \n\
+    dataPath=/mydata/pf/tailscale \n\
 fi \n\
 mkdir -p $dataPath/tmp \n\
 if [ $TAILSCALE_KEY ]; then \n\
@@ -87,11 +108,10 @@ fi \n\
 if [ $TAILSCALE_HOSTNAME ]; then \n\
     SET_TAILSCALE_HOSTNAME="--hostname=${TAILSCALE_HOSTNAME}" \n\
 fi \n\
-nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=${dataPath}/tmp/tailscaled.state --socket=${dataPath}/tmp/tailscaled.sock --port 41641 > nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscale.pid  \n\
-nohup $curDir/tailscale --socket=${dataPath}/tmp/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
+nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=${dataPath}/tailscaled.state --socket=${dataPath}/tailscaled.sock --port 41641 > nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscaled.pid  \n\
+nohup $curDir/tailscale --socket=${dataPath}/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
 echo "tailscale!" \n\
-' > tailscale/start.sh \
-&& chmod +x tailscale/start.sh && \
+' > tailscale/start.sh && chmod +x tailscale/start.sh && \
 # turbovnc start script
 echo "#!/bin/bash"> /start_turboVnc.sh && \
 echo '\
@@ -99,10 +119,36 @@ if [ ! -f /etc/X11/xinit/xinitrc_bak ]; then \n\
     mv /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc_bak \n\
     echo "exec ratpoison" >/etc/X11/xinit/xinitrc && chmod +x /etc/X11/xinit/xinitrc \n\
 fi \n\
-/opt/TurboVNC/bin/vncserver \n\
-' > tailscale/start_turboVnc.sh \
+if [ ! $VNC_NUMBER ]; then \n\
+    VNC_NUMBER=1 \n\
+fi \n\
+if [ -f /root/.vnc/$HOSTNAME:$VNC_NUMBER.pid ]; then  \n\
+    opt/TurboVNC/bin/vncserver -kill :$VNC_NUMBER \n\
+fi \n\
+rm -rf /tmp/.X11-unix/ \n\
+/opt/TurboVNC/bin/vncserver :$VNC_NUMBER \n\
+' > /start_turboVnc.sh && chmod +x /start_turboVnc.sh && \
+echo '\
+mkdir -p /mydata/pf /mydata/userdata \n\
+cd /mydata/pf \n\
+echo "download vscode and extract to /mydata/pf/" \n\
+curl -fsL "https://code.visualstudio.com/sha/download?build=stable&os=linux-x64" | tar --no-same-owner -zx \n\
+echo "download firefox and extract to /mydata/pf/" \n\
+curl -fsL "https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US" | tar --no-same-owner -jx \n\
+echo "download cn fonts to /mydata/pf/ and link them to $HOME/.fonts to make browser display chinese character correctly." \n\
+if [ ! -d /mydata/pf/GoogleColabRDP-main/win_cn_fonts ]; then \n\
+    mkdir -p /mydata/pf \n\
+    cd /mydata/pf \n\
+    curl -fL https://codeload.github.com/ChenYFan/GoogleColabRDP/zip/main -o cn_font.zip \n\
+    unzip cn_font.zip \n\
+    rm cn_font.zip \n\
+fi \n\
+if [[ ! -d $HOME/.fonts && -d /mydata/pf/GoogleColabRDP-main/win_cn_fonts ]]; then \n\
+  ln -s /mydata/pf/GoogleColabRDP-main/win_cn_fonts $HOME/.fonts \n\
+fi \n\
+' > /download_tool.sh && chmod +x /download_tool.sh && \
 #nginx http server config
-&& echo '\
+echo '\
 map $http_upgrade $connection_upgrade { \n\
     default upgrade; \n\
     "" close; \n\
