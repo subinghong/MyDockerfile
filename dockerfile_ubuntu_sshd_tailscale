@@ -2,8 +2,7 @@ FROM       ubuntu:20.04
 #MAINTAINER sbh
 
 #发现构建过程中有出现询问timezone的交互导致构建无法顺利进行下去，设置该变量跳过询问交互
-ARG DEBCONF_NONINTERACTIVE_SEEN=true
-ARG DEBIAN_FRONTEND=noninteractive
+ARG DEBCONF_NONINTERACTIVE_SEEN=true DEBIAN_FRONTEND=noninteractive
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     TZ=Asia/Shanghai TailscaleVersion=1.34.2 \
@@ -13,7 +12,13 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
 
 RUN apt-get update && \
 apt-get install -y openssh-server vim zip unzip git inetutils-ping curl wget ncat locales nginx telnet \
-    x11-utils xorg ratpoison xterm \
+    x11-utils xorg \
+    #终端程序，相比xterm，urxvt-unicode更加轻量
+    rxvt-unicode \
+    # ratpoison是一个轻量的窗口管理器，全键盘式操作，只能全屏显示单个应用，或者用分割窗口的方式显示多个应用
+    ratpoison \
+    # openbox轻量的多窗口管理器，pcmanfm文件管理其，tint2底部程序栏管理器（推荐的桌面组合，比较接近windows的操作体验）
+    openbox pcmanfm tint2 \
     #firefox dep
     libgtk-3-dev libdbus-glib-1.2 libegl1-mesa \
     #vscode dep
@@ -69,7 +74,18 @@ rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
 #container start script
 RUN echo "#!/bin/bash"> /start.sh && \
 echo '\
-# sh -c \'echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd\' \n\
+#sh -c \'echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd\' \n\
+if [ -f $HOME/.bashrc ]; then \n\
+  PS1=1 && source $HOME/.bashrc \n\
+fi \n\
+sed -i "/#myAuthSetting-1/d" /etc/nginx/nginx.conf \n\
+if [ $nginxHttpAuthUser ]; then \n\
+    echo -n ${nginxHttpAuthUser:-user}: > /etc/nginx/.htpasswd \n\
+    openssl passwd -apr1 ${nginxHttpAuthPassword:-none} >> /etc/nginx/.htpasswd \n\
+    echo "#enable nginx http auth" \n\
+    sed -i "/include \\/etc\\/nginx\\/conf.d/i\\#insertAuthInfoHere" /etc/nginx/nginx.conf \n\
+    sed -i "s@#insertAuthInfoHere@auth_basic \\"Restricted\\"; #myAuthSetting-1\\nauth_basic_user_file /etc/nginx/.htpasswd; #myAuthSetting-1@g" /etc/nginx/nginx.conf \n\
+fi \n\
 nginx \n\
 if [ $TAILSCALE_ENABLE ]; then \n\
     bash /tailscale/start.sh & \n\
@@ -115,38 +131,110 @@ echo "tailscale!" \n\
 # turbovnc start script
 echo "#!/bin/bash"> /start_turboVnc.sh && \
 echo '\
-if [ ! -f /etc/X11/xinit/xinitrc_bak ]; then \n\
-    mv /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc_bak \n\
-    echo "exec ratpoison" >/etc/X11/xinit/xinitrc && chmod +x /etc/X11/xinit/xinitrc \n\
-fi \n\
+# if [ ! -f /etc/X11/xinit/xinitrc_bak ]; then \n\
+#     mv /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc_bak \n\
+#     echo "exec ratpoison" >/etc/X11/xinit/xinitrc && chmod +x /etc/X11/xinit/xinitrc \n\
+# fi \n\
 if [ ! $VNC_NUMBER ]; then \n\
     VNC_NUMBER=1 \n\
 fi \n\
-if [ -f /root/.vnc/$HOSTNAME:$VNC_NUMBER.pid ]; then  \n\
-    opt/TurboVNC/bin/vncserver -kill :$VNC_NUMBER \n\
+if [ -f $HOME/.vnc/$HOSTNAME:$VNC_NUMBER.pid ]; then  \n\
+    /opt/TurboVNC/bin/vncserver -kill :$VNC_NUMBER \n\
 fi \n\
 rm -rf /tmp/.X11-unix/ \n\
-/opt/TurboVNC/bin/vncserver :$VNC_NUMBER \n\
+/opt/TurboVNC/bin/vncserver -xstartup /xstartup.sh :$VNC_NUMBER \n\
 ' > /start_turboVnc.sh && chmod +x /start_turboVnc.sh && \
+mkdir -p /root/.vnc/ && echo '\
+echo "#set env variable to enable fcitx and input type switch hot key for gui application" \n\
+export XMODIFIERS=@im=fcitx GTK_IM_MODULE=xim QT_IM_MODULE=xim \n\
+echo "#exec ratpoison" \n\
+if command -v pcmanfm | grep pcmanfm > /dev/null; then  \n\
+    pcmanfm --desktop & \n\
+    if [ $(id -u) = 0 ] && [ -f /etc/xdg/libfm/libfm.conf ]; then \n\
+        sed -i "/quick_exec/d" /etc/xdg/libfm/libfm.conf  \n\
+        sed -i "/\[config\]/a\quick_exec=1" /etc/xdg/libfm/libfm.conf \n\
+    fi \n\
+    if [ -f $HOME/.config/libfm/libfm.conf ]; then \n\
+        echo "set [Dont ask options on launch executable file] to true" \n\
+        sed -i "s/quick_exec=0/quick_exec=1/g" $HOME/.config/libfm/libfm.conf \n\
+    fi \n\
+fi \n\
+if command -v tint2 | grep tint2 > /dev/null; then  \n\
+    tint2 & \n\
+fi \n\
+if command -v fcitx | grep fcitx > /dev/null; then  \n\
+    fcitx & \n\
+    if [ -f $HOME/.config/fcitx/profile ] ; then \n\
+        sed -i "s/googlepinyin:False/googlepinyin:True/g" $HOME/.config/fcitx/profile \n\
+    fi \n\
+fi \n\
+openbox \n\
+' > /xstartup.sh && chmod +x /xstartup.sh && \
 echo '\
 mkdir -p /mydata/pf /mydata/userdata \n\
 cd /mydata/pf \n\
-echo "download vscode and extract to /mydata/pf/" \n\
-curl -fsL "https://code.visualstudio.com/sha/download?build=stable&os=linux-x64" | tar --no-same-owner -zx \n\
-echo "download firefox and extract to /mydata/pf/" \n\
-curl -fsL "https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US" | tar --no-same-owner -jx \n\
-echo "download cn fonts to /mydata/pf/ and link them to $HOME/.fonts to make browser display chinese character correctly." \n\
-if [ ! -d /mydata/pf/GoogleColabRDP-main/win_cn_fonts ]; then \n\
-    mkdir -p /mydata/pf \n\
-    cd /mydata/pf \n\
-    curl -fL https://codeload.github.com/ChenYFan/GoogleColabRDP/zip/main -o cn_font.zip \n\
-    unzip cn_font.zip \n\
-    rm cn_font.zip \n\
+if [ ! -d /mydata/pf/VSCode-linux-x64 ]; then \n\
+    echo -n "Do you want to install VSCode to /mydata/pf/VSCode-linux-x64?(y/N)": && read installConfirm \n\
+    if [ $installConfirm ]; then \n\
+        echo "downloading vscode and extract to /mydata/pf/" \n\
+        curl -fL "https://code.visualstudio.com/sha/download?build=stable&os=linux-x64" | tar --no-same-owner -zx \n\
+        echo -e "[Desktop Entry]\\nEncoding=UTF-8\\nType=Application\\nName=vscode\\nIcon=/mydata/pf/VSCode-linux-x64/resources/app/resources/linux/code.png\\nExec=/mydata/pf/VSCode-linux-x64/code --no-sandbox" > $HOME/Desktop/vscode.desktop \n\
+    fi \n\
+fi \n\
+if [ ! -d /mydata/pf/firefox ]; then \n\
+    echo -n "Do you want to install firefox to /mydata/pf/firefox?(y/N)": && read installConfirm \n\
+    if [ $installConfirm ]; then \n\
+        echo "downloading firefox and extract to /mydata/pf/" \n\
+        curl -fL "https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US" | tar --no-same-owner -jx \n\
+        echo -e "[Desktop Entry]\\nEncoding=UTF-8\\nType=Application\\nName=firefox\\nIcon=/mydata/pf/firefox/browser/chrome/icons/default/default128.png\\nExec=/mydata/pf/firefox/firefox" > $HOME/Desktop/firefox.desktop \n\
+    fi \n\
+fi \n\
+if [ ! -d /mydata/pf/GoogleColabRDP-main ]; then \n\
+    echo -n "Do you want to install win_cn_fonts to /mydata/pf/GoogleColabRDP-main?(y/N)": && read installConfirm \n\
+    if [ $installConfirm ]; then \n\
+        echo "download cn fonts to /mydata/pf/ and link them to $HOME/.fonts to make browser display chinese character correctly." \n\
+        cd /mydata/pf \n\
+        curl -fL https://codeload.github.com/ChenYFan/GoogleColabRDP/zip/main -o cn_font.zip \n\
+        unzip cn_font.zip \n\
+        rm cn_font.zip \n\
+    fi \n\
 fi \n\
 if [[ ! -d $HOME/.fonts && -d /mydata/pf/GoogleColabRDP-main/win_cn_fonts ]]; then \n\
   ln -s /mydata/pf/GoogleColabRDP-main/win_cn_fonts $HOME/.fonts \n\
 fi \n\
-' > /download_tool.sh && chmod +x /download_tool.sh && \
+if [ ! -d /opt/sublime_text/ ]; then \n\
+    echo -n "Do you want to install sublime_text to /opt/sublime_text?(y/N)": && read installConfirm \n\
+    if [ $installConfirm ]; then \n\
+        echo "#安装GPG密钥" \n\
+        wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | apt-key add - \n\
+        echo "#确保apt设置为使用https源" \n\
+        sudo apt-get install apt-transport-https \n\
+        echo "#选择稳定版本源" \n\
+        echo "deb https://download.sublimetext.com/ apt/stable/" | tee /etc/apt/sources.list.d/sublime-text.list \n\
+        echo "更新apt源并安装sublime-text" \n\
+        apt-get update && apt-get install sublime-text \n\
+        echo "install complete,sublime start command: /opt/sublime_text/sublime_text" \n\
+    fi \n\
+fi \n\
+if ! command -v fcitx | grep fcitx > /dev/null; then \n\
+    echo -n "Do you want to install fcitx-bin and fcitx-googlepinyi- 谷歌拼音输入法 ?(y/N)": && read installConfirm \n\
+    if [ $installConfirm ]; then \n\
+        apt-get install -y fcitx fcitx-bin \n\
+        apt-get install -y fcitx-googlepinyin \n\
+        if ! cat /etc/environment | grep XMODIFIERS > /dev/null ; then \n\
+            echo "XMODIFIERS=@im=fcitx GTK_IM_MODULE=xim QT_IM_MODULE=xim" >> /etc/environment \n\
+        fi \n\
+        if ! cat $HOME/.bashrc | grep XMODIFIERS > /dev/null ; then \n\
+            echo "export XMODIFIERS=@im=fcitx GTK_IM_MODULE=xim QT_IM_MODULE=xim" >> $HOME/.bashrc \n\
+        fi \n\
+        fcitx & \n\
+        sleep 5s \n\
+        if [ -f $HOME/.config/fcitx/profile ] ; then \n\
+            sed -i "s/googlepinyin:False/googlepinyin:True/g" $HOME/.config/fcitx/profile \n\
+        fi \n\
+    fi \n\
+fi \n\
+' > /download_extra_tool.sh && chmod +x /download_extra_tool.sh && \
 #nginx http server config
 echo '\
 map $http_upgrade $connection_upgrade { \n\
