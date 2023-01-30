@@ -15,5 +15,5 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         dockerfile: dockerfile_ubuntu_sshd_tailscale
-        tags: "vsc_vnc_${{ steps.pre-step.outputs.release-version }}"
+        tags: "${{ steps.pre-step.outputs.release-version }}"
         cache: true
