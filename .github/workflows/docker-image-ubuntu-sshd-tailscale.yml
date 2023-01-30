@@ -7,7 +7,7 @@ jobs:
     - uses: actions/checkout@master
     - id: pre-step
       shell: bash
-      run: echo "CI_SHA_SHORT=$CI_SHA_SHORT" >> $GITHUB_OUTPUT
+      run: echo "CI_SHA_SHORT=$(echo ${CI_SHA_SHORT})" >> $GITHUB_OUTPUT
     - name: Publish to Registry
       uses: elgohr/Publish-Docker-Github-Action@v4
       with:
