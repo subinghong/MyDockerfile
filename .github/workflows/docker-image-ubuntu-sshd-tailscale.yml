@@ -1,7 +1,5 @@
 name: PublishDocker_vsc_vnc
 on: [workflow_dispatch]
-env:
-  imageTagName: ${{ }}
 jobs:
   build:
     runs-on: ubuntu-latest
