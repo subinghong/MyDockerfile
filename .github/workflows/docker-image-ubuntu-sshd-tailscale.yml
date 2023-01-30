@@ -1,7 +1,5 @@
 name: PublishDocker_vsc_vnc
 on: [workflow_dispatch]
-env:
-  imageTagName: $CI_SHA_SHORT
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,4 +12,4 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         dockerfile: dockerfile_ubuntu_sshd_tailscale
-        tags: "vsc_vnc_${{ env.imageTagName }}"
+        tags: "vsc_vnc_${{ vars.CI_SHA_SHORT }}"
