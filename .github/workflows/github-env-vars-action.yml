@@ -1,6 +1,6 @@
-name: Demo
+name: Demo-github-env-vars-action
 
-on: [push, pull_request]
+on: [workflow_dispatch]
 #github action 中引用环境变量
 #https://devpress.csdn.net/cicd/62edbda3c6770329307f2c57.html
 #https://github.com/FranzDiebold/github-env-vars-action
