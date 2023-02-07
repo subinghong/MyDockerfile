@@ -18,7 +18,7 @@ apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
 echo '#enable password login' && \
 echo 'root:rootPwGo!' |chpasswd && \
 echo '# && useradd -m appuser  && echo "appuser:appuser" | /usr/sbin/chpasswd  && adduser appuser sudo' && \
-echo sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config && \
+sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config && \
 echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
 echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
 mkdir /root/.ssh && \
@@ -44,7 +44,7 @@ if [ -f $HOME/.bashrc ]; then \n\
   PS1=1 && source $HOME/.bashrc \n\
 fi \n\
 if [ $ROOT_PASSWORD ]; then \n\
-    sh -c \'echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd\' \n\
+    echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd \n\
 fi \n\
 sed -i "/#myAuthSetting-1/d" /etc/nginx/nginx.conf \n\
 if [ $nginxHttpAuthUser ]; then \n\
