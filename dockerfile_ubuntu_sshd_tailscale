@@ -70,6 +70,10 @@ tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
 mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
 rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
 
+RUN echo '#if run in udocker ,should add "-o APT::Sandbox::User=root" when exec apt-get command' >> /root/.bashrc && \
+echo '#apt-get -o APT::Sandbox::User=root -o Acquire::http::proxy=socks5h://127.0.0.1:1080 update' >> /root/.bashrc && \
+echo 'if [ $RunInUdocker ]; then \n alias apt-get="apt-get -o APT::Sandbox::User=root" \n fi' >> /root/.bashrc
+
 #在dockerfile中 echo 不能加 -e，否则会被当做字符串拼接在内容里面
 #container start script
 RUN echo "#!/bin/bash"> /start.sh && \
