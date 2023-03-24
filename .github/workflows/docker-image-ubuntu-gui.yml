@@ -1,4 +1,4 @@
-name: PublishDocker_vsc_vnc
+name: PublishDocker_gui
 on: [workflow_dispatch]
 jobs:
   build:
