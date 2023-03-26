@@ -190,7 +190,16 @@ if command -v tint2 | grep tint2 > /dev/null; then  \n\
     tint2 & \n\
 fi \n\
 if command -v fcitx | grep fcitx > /dev/null; then  \n\
+    if ! cat /etc/environment | grep XMODIFIERS > /dev/null ; then \n\
+        echo "XMODIFIERS=@im=fcitx GTK_IM_MODULE=xim QT_IM_MODULE=xim" >> /etc/environment \n\
+    fi \n\
+    if ! cat $HOME/.bashrc | grep XMODIFIERS > /dev/null ; then \n\
+        echo "export XMODIFIERS=@im=fcitx GTK_IM_MODULE=xim QT_IM_MODULE=xim" >> $HOME/.bashrc \n\
+    fi \n\
     fcitx & \n\
+    if [ ! -f $HOME/.config/fcitx/profile ] ; then \n\
+        sleep 5s \n\
+    fi \n\
     if [ -f $HOME/.config/fcitx/profile ] ; then \n\
         sed -i "s/googlepinyin:False/googlepinyin:True/g" $HOME/.config/fcitx/profile \n\
     fi \n\
