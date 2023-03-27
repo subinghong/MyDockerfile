@@ -1,75 +1,193 @@
-FROM       ubuntu:18.04
-#MAINTAINER subinghong
+FROM       ubuntu:20.04
+
+#发现构建过程中有出现询问timezone的交互导致构建无法顺利进行下去，设置该变量跳过询问交互
+ARG DEBCONF_NONINTERACTIVE_SEEN=true DEBIAN_FRONTEND=noninteractive
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
-    TAILSCALE_KEY=${TAILSCALE_KEY} \
-    TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME}
+    TZ=Asia/Shanghai TailscaleVersion=1.34.2 \
+    TAILSCALE_KEY=${TAILSCALE_KEY}  TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME} \
+    GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081 \
+    CODE_SERVER_VER=4.9.1 VNC_NUMBER=1
 
-RUN apt-get update
-RUN apt-get install -y openssh-server vim zip unzip git curl
-RUN mkdir /var/run/sshd
+RUN apt-get update && \
+apt-get install -y openssh-server vim zip unzip git inetutils-ping curl wget ncat locales nginx telnet tmux \
+    x11-utils xorg \
+    #终端程序，相比xterm，urxvt-unicode更加轻量
+    rxvt-unicode \
+    # ratpoison是一个轻量的窗口管理器，全键盘式操作，只能全屏显示单个应用，或者用分割窗口的方式显示多个应用
+    ratpoison \
+    # Fluxbox是一个轻量级图形操作界面，占用低
+    # openbox轻量的多窗口管理器，pcmanfm文件管理器，tint2底部程序栏管理器（推荐的桌面组合，比较接近windows的操作体验）
+    openbox pcmanfm tint2 \
+    #firefox dep
+    libgtk-3-dev libdbus-glib-1.2 libegl1-mesa \
+    #vscode dep
+    libnss3 && \
+# turboVNC
+localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && \
+curl -fOL https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb && \
+curl -fOL https://sourceforge.net/projects/virtualgl/files/3.0.2/virtualgl_3.0.2_amd64.deb && \
+dpkg -i turbovnc_3.0.2_amd64.deb virtualgl_3.0.2_amd64.deb && apt-get install -f && \
+rm *.deb && \
+# noVNC and websockify
+curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v${NOVNC_TAG:-1.3.0}.zip | tar --no-same-owner -zx && \
+mv noVNC-${NOVNC_TAG:-1.3.0} /opt/noVNC && \
+curl -sL https://github.com/novnc/websockify/archive/refs/tags/v${WEBSOCKIFY_TAG:-0.10.0}.zip | tar --no-same-owner -zx && \
+mv websockify-${WEBSOCKIFY_TAG:-0.10.0} /opt/noVNC/utils/websockify && \
+echo "nohup /opt/noVNC/utils/novnc_proxy --vnc ${VNC_SERVER:-127.0.0.1:5901} --listen ${NOVNC_WEB_PORT:-6080} > nohup_noVNC.out & " >> /opt/start_noVNC.sh && chmod u+x /opt/start_noVNC.sh && \
+# echo '#clear cache' && \
+# apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+# enable password login
+echo '#enable password login' && \
+echo 'root:rootPwGo!' |chpasswd && \
+echo '# && useradd -m appuser  && echo "appuser:appuser" | /usr/sbin/chpasswd  && adduser appuser sudo' && \
+echo sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config && \
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
+mkdir /root/.ssh && \
+echo '#remove nginx default server conf' && \
+sed -i 's%include /etc/nginx/sites-enabled/%#include /etc/nginx/sites-enabled/%g' /etc/nginx/nginx.conf
 
-RUN echo 'root:rootpw' |chpasswd
-RUN useradd -m alpine  && echo "alpine:uuidgen" | /usr/sbin/chpasswd  && adduser alpine sudo
-RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
-RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
-RUN echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
-RUN mkdir /root/.ssh
+#install chrome
+# RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+# apt-get install -y ./google-chrome-stable_current_amd64.deb	&& \
+# apt-get install -f && \
+# 	rm google-chrome-stable_current_amd64.deb && \
+# 	echo "#set border 1" > ~/.ratpoisonrc  && \
+# 	echo "#exec google-chrome --no-sandbox">> ~/.ratpoisonrc
 
-RUN echo "#!/bin/bash" > start.sh
-RUN chmod +x /start.sh
+#install firefox
+# RUN curl -fL 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' --output firefox-latest.tar.bz2 && \
+# tar xjvf firefox-latest.tar.bz2 && rm firefox-latest.tar.bz2
+# tar.bz2 解压需要用 -jx 参数
+# RUN curl -fsL 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' | tar --no-same-owner -jx
 
-RUN echo "sh -c 'echo root:\${ROOT_PASSWORD:-rootpw} | chpasswd'" >> start.sh
+#install vscode tar.gz 解压用 -zx 参数
+#RUN curl -fsL 'https://code.visualstudio.com/sha/download?build=stable&os=linux-x64' | tar --no-same-owner -zx
 
-#install nginx 
-RUN apt-get install -y nginx
-RUN echo "nginx" >> start.sh
-
-#add nginx gost proxy config
-RUN mkdir -p /etc/nginx/sites-enabled/
-RUN echo "" > /etc/nginx/sites-enabled/default
-RUN mkdir -p /etc/nginx/conf.d/
-RUN echo "map \$http_upgrade \$connection_upgrade {" > /etc/nginx/conf.d/default.conf
-RUN echo "   default upgrade;" >> /etc/nginx/conf.d/default.conf
-RUN echo "  '' close;" >> /etc/nginx/conf.d/default.conf
-RUN echo "}" >> /etc/nginx/conf.d/default.conf
-RUN echo "server {" >> /etc/nginx/conf.d/default.conf
-RUN echo "  listen     80 default_server;" >> /etc/nginx/conf.d/default.conf
-RUN echo "  listen     [::]:80 default_server;" >> /etc/nginx/conf.d/default.conf
-RUN echo "  server_name  localhost;" >> /etc/nginx/conf.d/default.conf
-RUN echo "  location / {" >> /etc/nginx/conf.d/default.conf
-RUN echo "    root   /var/www/html;" >> /etc/nginx/conf.d/default.conf
-RUN echo "    index  index.html index.htm index.nginx-debian.html;">>  /etc/nginx/conf.d/default.conf
-RUN echo "  }" >> /etc/nginx/conf.d/default.conf
-RUN echo "  location /vsc/ {" >> /etc/nginx/conf.d/default.conf
-RUN echo "    proxy_pass http://127.0.0.1:8443/;" >> /etc/nginx/conf.d/default.conf
-RUN echo "    proxy_set_header Host \$host;" >> /etc/nginx/conf.d/default.conf
-RUN echo "    proxy_http_version 1.1;" >> /etc/nginx/conf.d/default.conf
-RUN echo "    proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/default.conf
-RUN echo "    proxy_set_header Connection \"upgrade\";" >> /etc/nginx/conf.d/default.conf
-RUN echo "  }" >> /etc/nginx/conf.d/default.conf
-RUN echo "}" >> /etc/nginx/conf.d/default.conf
-
+#install tailscale
+RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.34.2}_amd64.tgz | tar --no-same-owner -zx && \
+mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale && \
+#install gost proxy
+curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar --no-same-owner -zx && \
+    mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost && \
 #install code-server
-RUN curl -fOL https://github.com/coder/code-server/releases/download/v4.4.0/code-server-4.4.0-linux-amd64.tar.gz
-RUN tar --no-same-owner -xzvf code-server-4.4.0-linux-amd64.tar.gz
-RUN rm code-server-4.4.0-linux-amd64.tar.gz
-RUN echo "if [ -d code-server-4.4.0-linux-amd64 ]; then" >> start.sh
-RUN echo "  cd code-server-4.4.0-linux-amd64" >> start.sh
-RUN echo "  mkdir -p /mydata/vsc_user_data" >> start.sh
-RUN echo "  if [ \$VSC_ENABLE ]; then" >> start.sh
-RUN echo "  export PASSWORD=\${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/vsc_user_data & > nohup_code-server.out & echo $! > code-server.pid" >> start.sh
-RUN echo "  fi" >> start.sh
-RUN echo "fi" >> start.sh
+curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
+rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
 
-RUN echo "/usr/sbin/sshd -D" >> start.sh
+RUN if [ $InstallGooglepinyin ] ; then apt-get install -y fcitx fcitx-bin fcitx-googlepinyin ; fi
 
-RUN echo "if [ -f /mydata/start_ext.sh ]; then . /mydata/start_ext.sh ; fi" >> start.sh
+RUN echo '#if run in udocker ,should add "-o APT::Sandbox::User=root" when exec apt-get command' >> /root/.bashrc && \
+echo '#apt-get -o APT::Sandbox::User=root -o Acquire::http::proxy=socks5h://127.0.0.1:1080 update' >> /root/.bashrc && \
+echo 'if [ $RunInUdocker ]; then \n alias apt-get="apt-get -o APT::Sandbox::User=root" \n fi' >> /root/.bashrc
 
+#在dockerfile中 echo 不能加 -e，否则会被当做字符串拼接在内容里面
+#container start script
+RUN echo "#!/bin/bash"> /start.sh && \
+echo '\
+#sh -c \'echo root:${ROOT_PASSWORD:-rootPwGo} | chpasswd\' \n\
+if [ -f $HOME/.bashrc ]; then \n\
+  PS1=1 && source $HOME/.bashrc \n\
+fi \n\
+sed -i "/#myAuthSetting-1/d" /etc/nginx/nginx.conf \n\
+if [ $nginxHttpAuthUser ]; then \n\
+    echo -n ${nginxHttpAuthUser:-user}: > /etc/nginx/.htpasswd \n\
+    openssl passwd -apr1 ${nginxHttpAuthPassword:-none} >> /etc/nginx/.htpasswd \n\
+    echo "#enable nginx http auth" \n\
+    sed -i "/include \\/etc\\/nginx\\/conf.d/i\\#insertAuthInfoHere" /etc/nginx/nginx.conf \n\
+    sed -i "s@#insertAuthInfoHere@auth_basic \\"Restricted\\"; #myAuthSetting-1\\nauth_basic_user_file /etc/nginx/.htpasswd; #myAuthSetting-1@g" /etc/nginx/nginx.conf \n\
+fi \n\
+nginx \n\
+if [ $TAILSCALE_ENABLE ]; then \n\
+    bash /tailscale/start.sh & \n\
+fi \n\
+ \n\
+nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > nohup_gost.out \n\
+if [ -d code-server-linux-amd64 ]; then \n\
+  cd code-server-linux-amd64 \n\
+  mkdir -p /mydata/userdata/vsc_user_data \n\
+  if [ $VSC_ENABLE ]; then \n\
+    export PASSWORD=${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/userdata/vsc_user_data > nohup_code-server.out & echo 2>&1& echo $! > code-server.pid \n\
+  fi \n\
+fi \n\
+if [ -f /mydata/start_ext.sh ]; then bash /mydata/start_ext.sh ; fi \n\
+ \n\
+mkdir -p /var/run/sshd \n\
+if [ $SSHD_ENABLE ]; then \n\
+/usr/sbin/sshd -D \n\
+else \n\
+tail -f /dev/null \n\
+fi \n\
+echo "end" \n\
+'>> /start.sh && chmod +x /start.sh && \
+#tailscale start script
+echo '\
+curDir=$(dirname $(readlink -f "$0")) \n\
+cd $curDir \n\
+dataPath=$curPath \n\
+if [ -d /mydata ]; then \n\
+    dataPath=/mydata/pf/tailscale \n\
+fi \n\
+mkdir -p $dataPath/tmp \n\
+if [ $TAILSCALE_KEY ]; then \n\
+    SET_TAILSCALE_KEY="--auth-key=${TAILSCALE_KEY}" \n\
+fi \n\
+if [ $TAILSCALE_HOSTNAME ]; then \n\
+    SET_TAILSCALE_HOSTNAME="--hostname=${TAILSCALE_HOSTNAME}" \n\
+fi \n\
+nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=${dataPath}/tailscaled.state --socket=${dataPath}/tailscaled.sock --port 41641 > nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscaled.pid  \n\
+nohup $curDir/tailscale --socket=${dataPath}/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
+echo "tailscale!" \n\
+' > tailscale/start.sh && chmod +x tailscale/start.sh && \
+#nginx http server config
+echo '\
+map $http_upgrade $connection_upgrade { \n\
+    default upgrade; \n\
+    "" close; \n\
+} \n\
+ \n\
+server { \n\
+    listen       80; \n\
+    listen  [::]:80; \n\
+    server_name  localhost; \n\
+    location / { \n\
+        root   /usr/share/nginx/html; \n\
+        index  index.html index.htm; \n\
+    } \n\
+\n\
+    location /gost/ { \n\
+        proxy_pass http://127.0.0.1:8081/; \n\
+        proxy_set_header Host $host; \n\
+        proxy_http_version 1.1; \n\
+        proxy_set_header Upgrade $http_upgrade; \n\
+        proxy_set_header Connection "upgrade"; \n\
+    } \n\
+ \n\
+    location /vsc/ { \n\
+        proxy_pass http://127.0.0.1:8443/; \n\
+        proxy_set_header Host $host; \n\
+        proxy_http_version 1.1; \n\
+        proxy_set_header Upgrade $http_upgrade; \n\
+        proxy_set_header Connection "upgrade"; \n\
+    } \n\
+ \n\
+    location ~* ^/vnc/(.*) { \n\
+        resolver 127.0.0.11 valid=30s ipv6=off; \n\
+        set $target "novnc-p:6080"; \n\
+        proxy_pass http://$target/$1$is_args$args; \n\
+        # add_header Cache-Control no-store; \n\
+        proxy_set_header Host $host; \n\
+        proxy_http_version 1.1; \n\
+        proxy_set_header Upgrade $http_upgrade; \n\
+        proxy_set_header Connection "upgrade"; \n\
+        proxy_set_header X-Real-IP $remote_addr; \n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
+    } \n\
+} \n\
+'> /etc/nginx/conf.d/default.conf
 
-RUN apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-EXPOSE 22
+EXPOSE 80
 
 ENTRYPOINT [ "/start.sh" ]

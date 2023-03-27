@@ -58,7 +58,7 @@ sed -i 's%include /etc/nginx/sites-enabled/%#include /etc/nginx/sites-enabled/%g
 # apt-get install -f && \
 # 	rm google-chrome-stable_current_amd64.deb && \
 # 	echo "#set border 1" > ~/.ratpoisonrc  && \
-# 	echo "#exec google-chrome --no-sandbox">> ~/.ratpoisonrc
+# 	echo "#exec google-chrome --no-sandbox google-chrome --no-sandbox --disable-dev-shm-usage ">> ~/.ratpoisonrc
 
 #install firefox
 # RUN curl -fL 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' --output firefox-latest.tar.bz2 && \
@@ -214,7 +214,7 @@ if [ ! -d /mydata/pf/VSCode-linux-x64 ]; then \n\
     if [ $installConfirm ]; then \n\
         echo "downloading vscode and extract to /mydata/pf/" \n\
         curl -fL "https://code.visualstudio.com/sha/download?build=stable&os=linux-x64" | tar --no-same-owner -zx \n\
-        echo -e "[Desktop Entry]\\nEncoding=UTF-8\\nType=Application\\nName=vscode\\nIcon=/mydata/pf/VSCode-linux-x64/resources/app/resources/linux/code.png\\nExec=/mydata/pf/VSCode-linux-x64/code --no-sandbox" > $HOME/Desktop/vscode.desktop \n\
+        echo -e "[Desktop Entry]\\nEncoding=UTF-8\\nType=Application\\nName=vscode\\nIcon=/mydata/pf/VSCode-linux-x64/resources/app/resources/linux/code.png\\nExec=/mydata/pf/VSCode-linux-x64/code --no-sandbox --disable-dev-shm-usage" > $HOME/Desktop/vscode.desktop \n\
     fi \n\
 fi \n\
 if [ ! -d /mydata/pf/firefox ]; then \n\
