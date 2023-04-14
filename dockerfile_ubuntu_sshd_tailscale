@@ -116,8 +116,11 @@ nginx \n\
 if [ $TAILSCALE_ENABLE ]; then \n\
     bash /tailscale/start.sh & \n\
 fi \n\
- \n\
-nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > nohup_gost.out \n\
+\n\
+if [ $GOST_ENABLE ]; then \n\
+    nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > nohup_gost.out \n\
+fi \n\
+\n\
 if [ -d code-server-linux-amd64 ]; then \n\
   cd code-server-linux-amd64 \n\
   mkdir -p ${VSC_USER_DATA_DIR:-/mydata/userdata/vsc_user_data} \n\
