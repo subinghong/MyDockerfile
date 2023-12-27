@@ -13,11 +13,12 @@ jobs:
       env:
         InstallGooglepinyin: 1
         InstallChrome: 1
+        InstallCodeServer: 1
       with:
         name: subinghong/ubuntu-ssh
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-        buildargs: InstallGooglepinyin,InstallChrome
+        buildargs: InstallGooglepinyin,InstallChrome,InstallCodeServer
         dockerfile: dockerfile_ubuntu_sshd_tailscale
         tags: "gui,gui_${{ steps.pre-step.outputs.release-version }}"
         cache: true

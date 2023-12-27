@@ -4,7 +4,7 @@ FROM       ubuntu:20.04
 ARG DEBCONF_NONINTERACTIVE_SEEN=true DEBIAN_FRONTEND=noninteractive \
     TurbovncVer=3.0.2  VirtualglVer=3.0.2 \
     NOVNC_TAG=1.3.0 WEBSOCKIFY_TAG=0.10.0 \
-    InstallGooglepinyin InstallChrome
+    InstallGooglepinyin InstallChrome InstallCodeServer
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     TZ=Asia/Shanghai TailscaleVersion=1.34.2 \
@@ -76,10 +76,10 @@ mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale && \
 curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar --no-same-owner -zx && \
     mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost && \
 #install code-server
-curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
-tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
-mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
-rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
+# curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+# tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+# mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
+# rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
 
 RUN if [ ${InstallGooglepinyin} ] ; then apt-get install -y fcitx fcitx-bin fcitx-googlepinyin ; fi
 RUN if [ ${InstallChrome} ] ; then \
@@ -90,7 +90,15 @@ RUN if [ ${InstallChrome} ] ; then \
 	rm google-chrome-stable_current_amd64.deb && \
 	echo "#set border 1" > ~/.ratpoisonrc  && \
 	echo "#exec google-chrome --no-sandbox --disable-dev-shm-usage ">> /opt/start_chrome.sh && chmod u+x /opt/start_chrome.sh ; \
- fi
+fi
+
+#install code-server
+RUN if [ ${InstallCodeServer} ] ; then \
+    curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+    tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
+    mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
+    rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz ; \
+fi
 
 RUN echo '#if run in udocker ,should add "-o APT::Sandbox::User=root" when exec apt-get command' >> /root/.bashrc && \
 echo '#apt-get -o APT::Sandbox::User=root -o Acquire::http::proxy=socks5h://127.0.0.1:1080 update' >> /root/.bashrc && \
