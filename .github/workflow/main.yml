@@ -6,7 +6,7 @@ name: Build and Publish Docker
     steps:
     - uses: actions/checkout@master
     - name: Publish to Docker Repository
-    uses: elgohr/Publish-Docker-Github-Action@master
+    uses: elgohr/Publish-Docker-Github-Action@v5
     with:
       name: subinghong/docker-githubaction
       username: ${{ secrets.DOCKER_USERNAME }}
