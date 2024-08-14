@@ -7,7 +7,7 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 \
     TZ=Asia/Shanghai TailscaleVersion=1.34.2 \
     TAILSCALE_KEY=${TAILSCALE_KEY}  TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME} \
     GOST_VER=2.11.1 GOST_METHOD=chacha20 GOST_PASSWORD=ss123456 GOST_PORT=8081 \
-    CODE_SERVER_VER=4.9.1
+    CODE_SERVER_VER=4.91.1
 
 RUN apt-get update && \
 apt-get install -y openssh-server vim zip unzip git inetutils-ping curl wget ncat locales nginx telnet && \
