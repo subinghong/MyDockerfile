@@ -28,15 +28,17 @@ RUN useradd --uid 10014 -m appuser  && echo "appuser:appuser" | /usr/sbin/chpass
 
 #install tailscale
 RUN curl -sL https://pkgs.tailscale.com/stable/tailscale_${TailscaleVersion:-1.34.2}_amd64.tgz | tar --no-same-owner -zx && \
-mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale && \
+mv tailscale_${TailscaleVersion:-1.34.2}_amd64 tailscale && chown -r appuser:appuser tailscale && \
 #install gost proxy
 curl -sL https://github.com/xiaokaixuan/gost-heroku/releases/download/v${GOST_VER}/gost_${GOST_VER}_linux_amd64.tar.gz | tar --no-same-owner -zx && \
-    mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost
+    mv gost_${GOST_VER}_linux_amd64 gost && chmod a+x gost/gost && chown -r appuser:appuser gost
 #install code-server
 # curl -fOL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VER}/code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
 # tar --no-same-owner -xzvf code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz && \
 # mv code-server-${CODE_SERVER_VER}-linux-amd64 code-server-linux-amd64 && \
 # rm code-server-${CODE_SERVER_VER}-linux-amd64.tar.gz
+
+RUN curl -fOL https://github.com/cloudflare/cloudflared/releases/download/2024.8.2/cloudflared-fips-linux-amd64 && chown appuser:appuser cloudflared-fips-linux-amd64 && chmod +x cloudflared-fips-linux-amd64
 
 #container start script
 RUN echo "#!/bin/bash"> /start.sh && \
@@ -61,7 +63,10 @@ if [ $TAILSCALE_ENABLE ]; then \n\
 fi \n\
  \n\
 if [ $GOST_ENABLE ]; then \n\
-    nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > nohup_gost.out \n\
+    nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > /tmp/nohup_gost.out \n\
+fi \n\
+if [ $tunelAuthkey ]; then \n\
+    /cloudflared-fips-linux-amd64 service install $tunelAuthkey \n\
 fi \n\
  \n\
 if [ -d code-server-linux-amd64 ]; then \n\
@@ -96,8 +101,8 @@ fi \n\
 if [ $TAILSCALE_HOSTNAME ]; then \n\
     SET_TAILSCALE_HOSTNAME="--hostname=${TAILSCALE_HOSTNAME}" \n\
 fi \n\
-nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=${dataPath}/tailscaled.state --socket=${dataPath}/tailscaled.sock --port 41641 > nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscaled.pid  \n\
-nohup $curDir/tailscale --socket=${dataPath}/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > nohup_tailscale_up.out & \n\
+nohup $curDir/tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --state=/tmp/tailscaled.state --socket=/tmp/tailscaled.sock --port 41641 > /tmp/nohup_tailscaled.out 2>&1& echo $! > ${dataPath}/tailscaled.pid  \n\
+nohup $curDir/tailscale --socket=/tmp/tailscaled.sock up ${SET_TAILSCALE_KEY} ${SET_TAILSCALE_HOSTNAME}  > /tmp/nohup_tailscale_up.out & \n\
 echo "tailscale!" \n\
 ' > tailscale/start.sh && chmod +x tailscale/start.sh && \
 #nginx http server config
