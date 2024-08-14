@@ -155,6 +155,6 @@ server { \n\
 # Use the above created unprivileged user
 USER 10014
 
-EXPOSE 80
+EXPOSE 8081
 
 ENTRYPOINT [ "/start.sh" ]
