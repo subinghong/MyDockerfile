@@ -57,17 +57,19 @@ if [ $nginxHttpAuthUser ]; then \n\
     sed -i "/include \\/etc\\/nginx\\/conf.d/i\\#insertAuthInfoHere" /etc/nginx/nginx.conf \n\
     sed -i "s@#insertAuthInfoHere@auth_basic \\"Restricted\\"; #myAuthSetting-1\\nauth_basic_user_file /etc/nginx/.htpasswd; #myAuthSetting-1@g" /etc/nginx/nginx.conf \n\
 fi \n\
-nginx \n\
+if [ $NGINX_ENABLE ]; then \n\
+    nginx \n\
+fi \n\
+ \n\
 if [ $TAILSCALE_ENABLE ]; then \n\
     bash /tailscale/start.sh & \n\
 fi \n\
  \n\
 if [ $GOST_ENABLE ]; then \n\
-    nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > /tmp/nohup_gost.out \n\
+    nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT > /tmp/nohup_gost.out & \n\
 fi \n\
 if [ $tunelAuthkey ]; then \n\
-    /cloudflared-fips-linux-amd64 service uninstall \n\
-    /cloudflared-fips-linux-amd64 service install $tunelAuthkey \n\
+    nohup /cloudflared-fips-linux-amd64 tunnel run --token $tunelAuthkey > /dev/null & \n\ 
 fi \n\
  \n\
 if [ -d code-server-linux-amd64 ]; then \n\
