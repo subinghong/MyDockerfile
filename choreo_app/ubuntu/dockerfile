@@ -66,6 +66,7 @@ if [ $GOST_ENABLE ]; then \n\
     nohup /gost/gost -L=ss+mws://$GOST_METHOD:$GOST_PASSWORD@:$GOST_PORT & > /tmp/nohup_gost.out \n\
 fi \n\
 if [ $tunelAuthkey ]; then \n\
+    /cloudflared-fips-linux-amd64 service uninstall
     /cloudflared-fips-linux-amd64 service install $tunelAuthkey \n\
 fi \n\
  \n\
