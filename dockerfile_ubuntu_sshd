@@ -70,7 +70,7 @@ if [ -d code-server-linux-amd64 ]; then \n\
     export PASSWORD=${VSC_PASSWORD:-vscpw} && nohup ./bin/code-server --config vsc_config.yaml --bind-addr 0.0.0.0:8443 --auth password --user-data-dir /mydata/userdata/vsc_user_data > nohup_code-server.out & echo 2>&1& echo $! > code-server.pid \n\
   fi \n\
 fi \n\
-if [ $start_ext_sh ]; then \n\
+if [ "$start_ext_sh" ]; then \n\
     if [ ! -d /mydata/ ]; then mkdir /mydata ; fi \n\
     echo "$start_ext_sh" > /mydata/start_ext.sh \n\
 fi \n\
